@@ -17,7 +17,12 @@ yaml.indent(mapping=2, sequence=4, offset=2)
 
 def longest_consecutive_sequence(seq: str, char: str) -> int:
     """Return length of the longest consecutive sequence of `char` characters
-    in string `seq`."""
+    in string `seq`.
+
+    This measured faster than the more "Pythonic":
+
+    `max((len(list(g)) for k, g in groupby(s) if k == char), default=0)`
+    """
     assert len(char) == 1
     longest = 0
     current_streak = 0
@@ -34,30 +39,32 @@ def longest_consecutive_sequence(seq: str, char: str) -> int:
 def fence(node: "RenderTreeNode", context: "RenderContext") -> str:
     """Render fences (and directives).
 
-    Copied from upstream `mdformat` core and should be kept up-to-date
-    if upstream introduces changes. Note that only two lines are added
-    to the upstream implementation, i.e. the condition that calls
-    `format_directive_content` function.
+    Originally copied from upstream `mdformat` core. Key changes so far:
+    - call our `format_directive_content` function when a directive is detected (instead
+      of treating the contents as code in that case).
+    - allow colon fences (and use a heuristic to ensure good spacing when recombining
+      those).
     """
     info_str = node.info.strip()
     lang = info_str.split(maxsplit=1)[0] if info_str else ""
     is_directive = lang.startswith("{") and lang.endswith("}")
-    code_block = node.content
+    unformatted_body = node.content
 
-    # Info strings of backtick code fences can not contain backticks or tildes.
-    # If that is the case, we make a tilde code fence instead.
     if node.type == "colon_fence":
         fence_char = ":"
+    # Info strings of backtick code fences can not contain backticks or tildes.
+    # If that is the case, we make a tilde code fence instead.
     elif "`" in info_str or "~" in info_str:
         fence_char = "~"
     else:
         fence_char = "`"
 
-    # Format the code block using enabled codeformatter funcs
-    if lang in context.options.get("codeformatters", {}):
+    if is_directive:
+        body = format_directive_content(unformatted_body, context=context)
+    elif lang in context.options.get("codeformatters", {}):
         fmt_func = context.options["codeformatters"][lang]
         try:
-            code_block = fmt_func(code_block, info_str)
+            body = fmt_func(unformatted_body, info_str)
         except Exception:
             # Swallow exceptions so that formatter errors (e.g. due to
             # invalid code) do not crash mdformat.
@@ -66,18 +73,20 @@ def fence(node: "RenderTreeNode", context: "RenderContext") -> str:
                 f"Failed formatting content of a {lang} code block "
                 f"(line {node.map[0] + 1} before formatting)"
             )
-    # This "elif" is the *only* thing added to the upstream `fence` implementation!
-    elif is_directive:
-        code_block = format_directive_content(code_block, context=context)
+            body = unformatted_body
+    else:
+        body = unformatted_body
 
-    # The code block must not include as long or longer sequence of `fence_char`s
-    # as the fence string itself
-    fence_len = max(3, longest_consecutive_sequence(code_block, fence_char) + 1)
+    # The fenced contents must not include as long or longer sequence of `fence_char`s
+    # as the fence string itself.
+    fence_len = max(3, longest_consecutive_sequence(body, fence_char) + 1)
     fence_str = fence_char * fence_len
     formatted_fence = f"{fence_str}{info_str}\n"
-    if code_block.startswith(":::"):
+    # Heuristic to ensure child colon fences recombine with a leading blank line for
+    # consistency.
+    if body.startswith(":::"):
         formatted_fence += "\n"
-    formatted_fence += f"{code_block}{fence_str}"
+    formatted_fence += f"{body}{fence_str}"
     return formatted_fence
 
 

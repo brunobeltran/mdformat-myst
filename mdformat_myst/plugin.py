@@ -18,23 +18,16 @@ _ROLE_NAME_PATTERN = re.compile(r"({[a-zA-Z0-9_\-+:]+})")
 
 
 def update_mdit(mdit: MarkdownIt) -> None:
-    # Enable mdformat-tables plugin
-    tables_plugin = mdformat.plugins.PARSER_EXTENSIONS["tables"]
-    if tables_plugin not in mdit.options["parser_extension"]:
-        mdit.options["parser_extension"].append(tables_plugin)
-        tables_plugin.update_mdit(mdit)
-
-    # Enable mdformat-front-matters plugin
-    front_matters_plugin = mdformat.plugins.PARSER_EXTENSIONS["front_matters"]
-    if front_matters_plugin not in mdit.options["parser_extension"]:
-        mdit.options["parser_extension"].append(front_matters_plugin)
-        front_matters_plugin.update_mdit(mdit)
-
-    # Enable mdformat-footnote plugin
-    footnote_plugin = mdformat.plugins.PARSER_EXTENSIONS["footnote"]
-    if footnote_plugin not in mdit.options["parser_extension"]:
-        mdit.options["parser_extension"].append(footnote_plugin)
-        footnote_plugin.update_mdit(mdit)
+    plugins_to_enable = [
+        "tables",
+        "front_matters",
+        "footnote",
+    ]
+    for plugin_name in plugins_to_enable:
+        plugin = mdformat.plugins.PARSER_EXTENSIONS[plugin_name]
+        if plugin not in mdit.options["parser_extension"]:
+            mdit.options["parser_extension"].append(plugin)
+            plugin.update_mdit(mdit)
 
     # Enable MyST role markdown-it extension
     mdit.use(myst_role_plugin)
