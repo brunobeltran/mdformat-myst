@@ -1,9 +1,13 @@
+"""Helpers to handle directives---including their headers and fence syntax."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping, Sequence
 import io
 
 from markdown_it import MarkdownIt
+import mdformat
+import mdformat.plugins
 from mdformat.renderer import LOGGER, RenderContext, RenderTreeNode
 import ruamel.yaml
 
@@ -37,11 +41,14 @@ def fence(node: "RenderTreeNode", context: "RenderContext") -> str:
     """
     info_str = node.info.strip()
     lang = info_str.split(maxsplit=1)[0] if info_str else ""
+    is_directive = lang.startswith("{") and lang.endswith("}")
     code_block = node.content
 
     # Info strings of backtick code fences can not contain backticks or tildes.
     # If that is the case, we make a tilde code fence instead.
-    if "`" in info_str or "~" in info_str:
+    if node.type == "colon_fence":
+        fence_char = ":"
+    elif "`" in info_str or "~" in info_str:
         fence_char = "~"
     else:
         fence_char = "`"
@@ -60,48 +67,65 @@ def fence(node: "RenderTreeNode", context: "RenderContext") -> str:
                 f"(line {node.map[0] + 1} before formatting)"
             )
     # This "elif" is the *only* thing added to the upstream `fence` implementation!
-    elif lang.startswith("{") and lang.endswith("}"):
-        code_block = format_directive_content(code_block)
+    elif is_directive:
+        code_block = format_directive_content(code_block, context=context)
 
     # The code block must not include as long or longer sequence of `fence_char`s
     # as the fence string itself
     fence_len = max(3, longest_consecutive_sequence(code_block, fence_char) + 1)
     fence_str = fence_char * fence_len
+    formatted_fence = f"{fence_str}{info_str}\n"
+    if code_block.startswith(":::"):
+        formatted_fence += "\n"
+    formatted_fence += f"{code_block}{fence_str}"
+    return formatted_fence
 
-    return f"{fence_str}{info_str}\n{code_block}{fence_str}"
 
+def format_directive_content(raw_content: str, context) -> str:
+    unformatted_yaml, content = parse_opts_and_content(raw_content)
+    formatted = ""
+    if unformatted_yaml is not None:
+        dump_stream = io.StringIO()
+        try:
+            parsed = yaml.load(unformatted_yaml)
+            yaml.dump(parsed, stream=dump_stream)
+        except ruamel.yaml.YAMLError:
+            LOGGER.warning("Invalid YAML in MyST directive options.")
+            return raw_content
+        formatted_yaml = dump_stream.getvalue()
 
-def format_directive_content(raw_content: str) -> str:
-    parse_result = parse_opts_and_content(raw_content)
-    if not parse_result:
-        return raw_content
-    unformatted_yaml, content = parse_result
-    dump_stream = io.StringIO()
-    try:
-        parsed = yaml.load(unformatted_yaml)
-        yaml.dump(parsed, stream=dump_stream)
-    except ruamel.yaml.YAMLError:
-        LOGGER.warning("Invalid YAML in MyST directive options.")
-        return raw_content
-    formatted_yaml = dump_stream.getvalue()
+        # Remove the YAML closing tag if added by `ruamel.yaml`
+        if formatted_yaml.endswith("\n...\n"):
+            formatted_yaml = formatted_yaml[:-4]
 
-    # Remove the YAML closing tag if added by `ruamel.yaml`
-    if formatted_yaml.endswith("\n...\n"):
-        formatted_yaml = formatted_yaml[:-4]
+        # Convert empty YAML to most concise form
+        if formatted_yaml == "null\n":
+            formatted_yaml = ""
 
-    # Convert empty YAML to most concise form
-    if formatted_yaml == "null\n":
-        formatted_yaml = ""
-
-    formatted = "---\n" + formatted_yaml + "---\n"
+        formatted += "---\n" + formatted_yaml + "---\n"
     if content:
-        formatted += content + "\n"
+        # Get currently active plugin modules
+        active_plugins = context.options.get("parser_extension", [])
+
+        # Resolve modules back to their string names
+        # mdformat.text() requires names (str), not objects
+        extension_names = [
+            name
+            for name, plugin in mdformat.plugins.PARSER_EXTENSIONS.items()
+            if plugin in active_plugins
+        ]
+        formatted += mdformat.text(
+            content, options=context.options, extensions=extension_names
+        )
+        formatted = formatted.rstrip("\n") + "\n"
+        if formatted.endswith(":::\n"):
+            formatted += "\n"
     return formatted
 
 
-def parse_opts_and_content(raw_content: str) -> tuple[str, str] | None:
+def parse_opts_and_content(raw_content: str) -> tuple[str | None, str]:
     if not raw_content:
-        return None
+        return None, raw_content
     lines = raw_content.splitlines()
     line = lines.pop(0)
     yaml_lines = []
@@ -111,15 +135,17 @@ def parse_opts_and_content(raw_content: str) -> tuple[str, str] | None:
             if all(c == "-" for c in line) and len(line) >= 3:
                 break
             yaml_lines.append(line)
-    elif line.lstrip().startswith(":"):
+    elif line.lstrip().startswith(":") and not line.lstrip().startswith(":::"):
         yaml_lines.append(line.lstrip()[1:])
         while lines:
-            if not lines[0].lstrip().startswith(":"):
+            if not lines[0].lstrip().startswith(":") or lines[0].lstrip().startswith(
+                ":::"
+            ):
                 break
             line = lines.pop(0).lstrip()[1:]
             yaml_lines.append(line)
     else:
-        return None
+        return None, raw_content
 
     first_line_is_empty_but_second_line_isnt = (
         len(lines) >= 2 and not lines[0].strip() and lines[1].strip()
