@@ -435,34 +435,30 @@ Content
 ```
 .
 ```{some-directive} args
----
-option1: 1
-option2: hello
----
+:option1: 1
+:option2: hello
+
 Content
 ```
 
 ```{some-directive} args
----
-option1: 1
-option2: hello
----
+:option1: 1
+:option2: hello
+
 Content
 ```
 
 ```{some-directive} args
----
-option1: 1
-option2: hello
----
+:option1: 1
+:option2: hello
+
 Content
 ```
 
 ```{some-directive} args
----
-option1: 1
-option2: hello
----
+:option1: 1
+:option2: hello
+
 Content
 ```
 .
@@ -476,8 +472,6 @@ Content
 ```
 .
 ```{some-directive} args
----
----
 Content
 ```
 .
@@ -490,9 +484,7 @@ MyST directive no content
 ```
 .
 ```{some-directive} args
----
-letter: a
----
+:letter: a
 ```
 .
 
@@ -527,10 +519,9 @@ incididunt ut labore et dolore magna aliqua.
 :::
 .
 :::{admonition} MyST colon fenced directive with metadata
----
-class: foo
-truc: bla
----
+:class: foo
+:truc: bla
+
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua.
 :::
@@ -540,18 +531,18 @@ MyST colon fenced directive with nested directive
 .
 ::::{admonition} Parent directive
 :::{image} foo.png
-:class: foo
-:alt: An image
+---
+class: foo
+alt: An image
+---
 :::
 ::::
 .
 ::::{admonition} Parent directive
 
 :::{image} foo.png
----
-class: foo
-alt: An image
----
+:class: foo
+:alt: An image
 :::
 
 ::::
