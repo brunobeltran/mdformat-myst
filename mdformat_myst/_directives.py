@@ -50,7 +50,7 @@ def fence(node: "RenderTreeNode", context: "RenderContext") -> str:
     is_directive = lang.startswith("{") and lang.endswith("}")
     unformatted_body = node.content
 
-    if node.type == "colon_fence":
+    if node.type == "colon_fence" or is_directive:
         fence_char = ":"
     # Info strings of backtick code fences can not contain backticks or tildes.
     # If that is the case, we make a tilde code fence instead.

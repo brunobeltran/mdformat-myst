@@ -434,37 +434,37 @@ Content
 Content
 ```
 .
-```{some-directive} args
+:::{some-directive} args
 ---
 option1: 1
 option2: hello
 ---
 Content
-```
+:::
 
-```{some-directive} args
+:::{some-directive} args
 ---
 option1: 1
 option2: hello
 ---
 Content
-```
+:::
 
-```{some-directive} args
+:::{some-directive} args
 ---
 option1: 1
 option2: hello
 ---
 Content
-```
+:::
 
-```{some-directive} args
+:::{some-directive} args
 ---
 option1: 1
 option2: hello
 ---
 Content
-```
+:::
 .
 
 
@@ -475,11 +475,11 @@ MyST directive empty YAML
 Content
 ```
 .
-```{some-directive} args
+:::{some-directive} args
 ---
 ---
 Content
-```
+:::
 .
 
 MyST directive no content
@@ -489,11 +489,11 @@ MyST directive no content
 
 ```
 .
-```{some-directive} args
+:::{some-directive} args
 ---
 letter: a
 ---
-```
+:::
 .
 
 MyST directive, no opts or content
@@ -501,8 +501,8 @@ MyST directive, no opts or content
 ``` {some-directive} args
 ```
 .
-```{some-directive} args
-```
+:::{some-directive} args
+:::
 .
 MyST colon fenced directive with title
 .
