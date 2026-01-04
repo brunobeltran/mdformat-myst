@@ -101,18 +101,9 @@ def format_directive_content(raw_content: str, context) -> str:
         except ruamel.yaml.YAMLError:
             LOGGER.warning("Invalid YAML in MyST directive options.")
             return raw_content
-        formatted_yaml = dump_stream.getvalue()
-
-        # Remove the YAML closing tag if added by `ruamel.yaml`
-        if formatted_yaml.endswith("\n...\n"):
-            formatted_yaml = formatted_yaml[:-4]
-
-        # Convert empty YAML to most concise form
-        if formatted_yaml == "null\n":
-            formatted_yaml = ""
-
-        formatted += "---\n" + formatted_yaml + "---\n"
-    if content:
+        if parsed:
+            formatted += "\n".join([f":{k}: {v}" for k, v in parsed.items()]) + "\n\n"
+    if content.strip():
         # Get currently active plugin modules
         active_plugins = context.options.get("parser_extension", [])
 
@@ -126,9 +117,17 @@ def format_directive_content(raw_content: str, context) -> str:
         formatted += mdformat.text(
             content, options=context.options, extensions=extension_names
         )
-        formatted = formatted.rstrip("\n") + "\n"
-        if formatted.endswith(":::\n"):
-            formatted += "\n"
+    if not formatted:
+        return ""
+    # In both the content-containing case (in which case we might have many terminal
+    # newlines in the content) and the options-only case (in which case, we have
+    # inserted two newlines above to separate the options from the non-existent content)
+    # we want to ensure we end in _exactly_ one newline.
+    formatted = formatted.rstrip("\n") + "\n"
+    # Unless the last thing in the content is a colon-fence, which for consistency we
+    # always add padding to.
+    if formatted.endswith(":::\n"):
+        formatted += "\n"
     return formatted
 
 
